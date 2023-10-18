@@ -28,15 +28,15 @@ int ki = 1.5; // Valor da integral
 int kd = 0.06; // Valor da derivada
 
 // Variáveis ultrassônico
-int trigF = 14;
-int echoF = 15;
+int trigF = 26;
+int echoF = 24;
 int distanciaF;
 int tempoF;
 
 //ULTRASSONICO SERVO :
 
-int trigS = 14;
-int echoS = 15;
+int trigS = 37;
+int echoS = 36;
 int distanciaS;
 int tempoS;
 
@@ -90,17 +90,41 @@ void meiavolta() {
 }
 
 // Função para leitura do ultrassônico
-void ultraleitura() {
-  digitalWrite(trig, HIGH);
+void ultraleituraL() {
+  digitalWrite(trigL, HIGH);
   delayMicroseconds(10);
-  digitalWrite(trig, LOW);
-  tempo = pulseIn(echo, HIGH);
-  distancia = tempo / 29.4 / 2;
+  digitalWrite(trigL, LOW);
+  tempoL = pulseIn(echoL, HIGH);
+  distanciaL = tempoL / 29.4 / 2;
+}
+
+void ultraleituraF() {
+  digitalWrite(trigF, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigF, LOW);
+  tempoF = pulseIn(echoF, HIGH);
+  distanciaF = tempoF / 29.4 / 2;
+}
+
+void ultraleituraT() {
+  digitalWrite(trigT, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigT, LOW);
+  tempoT = pulseIn(echoT, HIGH);
+  distanciaT = tempoT / 29.4 / 2;
+}
+
+void ultraleituraS() {
+  digitalWrite(trigS, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigS, LOW);
+  tempoS = pulseIn(echoS, HIGH);
+  distanciaS = tempoS/ 29.4 / 2;
 }
 
 
 
-void pegar (int vel2 int rotations) {
+void pegar (int vel2, int rotations) {
 
 baixargarra();
 opengarra();
@@ -144,76 +168,73 @@ garraU.write(angle);
 
 
 void setup() {
-  //Definindo motores
-  motorR.hBridge(7, 8, 6 );      // Pinos da ponte H
+  motorR.hBridge(10, 9, 11);       // Pinos da ponte H
   motorR.setEncoderPin(3, 5); // Pinos do encoder
-  motorR.setRR(21.3);    // Razão da caixa de redução
-  motorR.setPIDconstants(kp, ki, kd); // Definindo constantes do PID
-  motorR.setPins(); // Definindo pinos do motor
+  motorR.setRR(21.3);    // Razão da caixa de redução é 30
+  motorR.setPIDconstants(kp,ki,kd);
+  motorR.setPins();
+  motorR.invertDirection();
   attachInterrupt(digitalPinToInterrupt(3), interruptR, FALLING);
 
-  motorL.hBridge(10, 9, 11);       // Pinos da ponte H
+  motorL.hBridge(7, 8, 6);       // Pinos da ponte H
   motorL.setEncoderPin(2, 4); // Pinos do encoder
-  motorL.setRR(21.3);    // Razão da caixa de redução
-  motorL.setPIDconstants(kp, ki, kd); // Definindo constantes do PID
-  motorL.setPins(); // Definindo pinos do motor
-  motorL.invertDirection(); // Invertendo a direção dos motores
+  motorL.setRR(21.3);    // Razão da caixa de redução é 30
+  //motorL.setPPR(11); // 11 pulsos que o encoder envia para cada volta dada em   // torno de seu eixo
+    motorL.setPIDconstants(kp,ki,kd);
+  motorL.setPins();
+  
   attachInterrupt(digitalPinToInterrupt(2), interruptL, FALLING);
 
-  pinMode(LED_BUILTIN, OUTPUT); // Dizendo que o led vai enviar um sinal, OUTPUT
-
-  // Interrupção externa
-
-  digitalWrite(LED_BUILTIN , LOW); // Deixando o Led desligado, assim evitando falso-positivo
+  both.setGyreDegreesRatio(0.8,90);
 
   // Definiindo se os pinos do ultrassônico sao OUTPUT ou INPUT
-  pinMode(trig, OUTPUT);
-  pinMode(echo, INPUT);
+  pinMode(trigS, OUTPUT);
+  pinMode(echoS, INPUT);
+  
+  pinMode(trigF, OUTPUT);
+  pinMode(echoF, INPUT);
+  
+  pinMode(trigL, OUTPUT);
+  pinMode(echoL, INPUT);
+  
+  pinMode(trigT, OUTPUT);
+  pinMode(echoT, INPUT);
 
   // Declaração de servos : 
 
   garraB.attach(0);
   garraL.attach(0);
-  garraR.attach(0);
-  garraU.attach(0);
+  garraD.attach(0);
+  garraU.attach(34);
 
   // Iniciando monitor serial
   Serial.begin(9600);
 
+ 
+
 }
 void loop() {
+  ultraleituraS();
+  ultraleituraF();
+  garraU.write(0);
+ garraU.write(8);
+ 
+ Serial.println(distanciaF);
 
-  // Verificando se está havendo comunicação serial
-  if (Serial.available()) {
-    // Declarando variável para fazer a leitura das informações no monitor serial
-    char lido = char(Serial.read());
+if (distanciaS <= 15 ) {
+  motorR.walk(20);
+  motorL.walk(90);
+}
 
-    // Ligando o led, para indicar que o código está sendo executado
-    digitalWrite(LED_BUILTIN , HIGH);
-    ultraleitura();
+if ( distanciaS >= 15) {
+   
+   motorR.walk(90);
+  motorL.walk(20);
+}
 
-    if (lido == '0') { // Linha a esquerda
-      esquerda();
-    }
-    if (lido == '1') { // Linha a direita
-      direita();
-    }
-    if (lido == '2') { // Linha ao centro
-      frente();
-    }
-
-    if (lido == '3') { // Verde a esquerda
-      esquerda();
-    }
-
-    if (lido == '4') { // Verde a direita
-      direita();
-    }
-    if (lido == '6') { // Dois verdes identificados, meia volta
-      meiavolta();
-
-    }
-  
-  }
+if ( distanciaF <= 10 && distanciaF >= 1 ) {
+   
+   both.turnDegree(100,90);
+}
 
 }
