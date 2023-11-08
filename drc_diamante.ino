@@ -1,18 +1,24 @@
 
 
-/// Código destinado a Olimpíada Brasileira de Robótica
-/// OBR Modalidade prátical virtual 2023 - Categoria Programação
-/// Equipe diamante: OBR 2023 ///
+
+
+
+
+/// Equipe diamante: Fira 2023 ///
 /// Membros da equipe: Huan Lin Fui
 ///                    Maurício Calvet
 ///                    Sabino Pinheiro
-///                    Maria Clara Palhano
 
 
 // Definindo Bibliotecas para o controle dos motores
 #include <TwoMotors.h>
 #include <DC_motor_controller.h>
 #include <Servo.h>
+#include <Wire.h>
+#include "Adafruit_TCS34725.h"
+#include <Adafruit_TCS34725.h>
+#include <VL53L0X.h>
+
 
 //Nomeando os motores
 DC_motor_controller motorR;
@@ -20,6 +26,9 @@ DC_motor_controller motorL;
 
 //Variável para o controle paralelo dos motores
 TwoMotors both(&motorR, &motorL);
+///// sensor de distancia a laser
+VL53L0X sensor;
+
 
 
 // Constantes do PID
@@ -55,13 +64,18 @@ int distanciaT;
 int tempoT;
 
 // Servos :
-//////////// servo braço  garra:
-Servo garraB;
-///////////// servos abriri e fecha a garra :
+//////////// servos braços  garra:
+Servo garraBL;
+Servo garraBD;
+///////////// servos abrir e fecha a garra :
 Servo garraL;
 Servo garraD;
  /////////// servos ultra:
  Servo garraU;
+
+/////////// servos sensor d cor :
+
+Servo garraSC;
 
 // Funções para controle da interrupção do motor
 void interruptR () {
@@ -71,6 +85,11 @@ void interruptL () {
   motorL.isr();
 }
 
+/* Initialise with default values (int time = 2.4ms, gain = 1x) */
+// Adafruit_TCS34725 tcs = Adafruit_TCS34725();
+
+/* Initialise with specific in t time and gain values */
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS34725_GAIN_1X);
 
 //funções para movimento dos motores
 void esquerda() {
@@ -98,33 +117,11 @@ void ultraleituraL() {
   distanciaL = tempoL / 29.4 / 2;
 }
 
-void ultraleituraF() {
-  digitalWrite(trigF, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigF, LOW);
-  tempoF = pulseIn(echoF, HIGH);
-  distanciaF = tempoF / 29.4 / 2;
-}
-
-void ultraleituraT() {
-  digitalWrite(trigT, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigT, LOW);
-  tempoT = pulseIn(echoT, HIGH);
-  distanciaT = tempoT / 29.4 / 2;
-}
-
-void ultraleituraS() {
-  digitalWrite(trigS, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigS, LOW);
-  tempoS = pulseIn(echoS, HIGH);
-  distanciaS = tempoS/ 29.4 / 2;
-}
 
 
 
-void pegar (int vel2, int rotations) {
+
+/*void pegar (int vel2, int rotations) {
 
 baixargarra();
 opengarra();
@@ -136,12 +133,13 @@ armgarra();
 }
 
 void baixargarra () {
-garraB.write(0);
+garraBD.write(0);
+garraBL.write(0);
 
 }
 
 void armgarra() {
-garraB.write(180);
+garraBL.write(0);
 }
 
 void soltar () {
@@ -160,32 +158,49 @@ garraL.write(180);
 garraD.write(180);
 }
 
+void verificar() {
+
+
+}
+
 void ultramoveS (int angle) {
 
 garraU.write(angle);
   
-}
+}*/
 
 
 void setup() {
-  motorR.hBridge(10, 9, 11);       // Pinos da ponte H
+
+  // Declaração de servos : 
+
+ /* garraBL.attach(28);
+  garraBD.attach(26);
+  garraL.attach(32);
+  garraD.attach(30);
+  garraU.attach(34);
+  garraSC.attach(36);*/ 
+  
+ motorR.hBridge (10, 9, 11 );       // Pinos da ponte H
   motorR.setEncoderPin(3, 5); // Pinos do encoder
   motorR.setRR(21.3);    // Razão da caixa de redução é 30
   motorR.setPIDconstants(kp,ki,kd);
   motorR.setPins();
-  motorR.invertDirection();
+  
   attachInterrupt(digitalPinToInterrupt(3), interruptR, FALLING);
 
-  motorL.hBridge(7, 8, 6);       // Pinos da ponte H
+  motorL.hBridge(7, 8, 6 );       // Pinos da ponte H
   motorL.setEncoderPin(2, 4); // Pinos do encoder
   motorL.setRR(21.3);    // Razão da caixa de redução é 30
   //motorL.setPPR(11); // 11 pulsos que o encoder envia para cada volta dada em   // torno de seu eixo
     motorL.setPIDconstants(kp,ki,kd);
   motorL.setPins();
-  
+  motorL.invertDirection();
   attachInterrupt(digitalPinToInterrupt(2), interruptL, FALLING);
 
   both.setGyreDegreesRatio(0.8,90);
+
+ 
 
   // Definiindo se os pinos do ultrassônico sao OUTPUT ou INPUT
   pinMode(trigS, OUTPUT);
@@ -200,41 +215,79 @@ void setup() {
   pinMode(trigT, OUTPUT);
   pinMode(echoT, INPUT);
 
-  // Declaração de servos : 
 
-  garraB.attach(0);
-  garraL.attach(0);
-  garraD.attach(0);
-  garraU.attach(34);
 
-  // Iniciando monitor serial
+  // Inicializa a comunicação serial
   Serial.begin(9600);
+  // Inicializa a comunicação I2C
+  Wire.begin();
 
+  // Inicializa o sensor
+  sensor.init();
+  // Define um timeout de 500mS para a leitura do sensor
+  // Em caso de erro, este será o tempo máximo de espera da resposta do sensor
+  sensor.setTimeout(500);
+  
+//Inicia o sensor e diz se ele conectou ou não
+ if (tcs.begin()) {
+    Serial.println("Found sensor");
+  } else {
+    Serial.println("No TCS34725 found ... check your connections");
+  }
+
+  // Now we're ready to get readings!
  
 
 }
 void loop() {
+
+  // Faz a medição da distância e retorna um valor em milímetros
+  int dist = sensor.readRangeSingleMillimeters();
+ 
+  // Imprime no monitor serial
+  Serial.println(dist);
+  
+/*uint16_t r, g, b, c, colorTemp, lux;
+
+  tcs.getRawData(&r, &g, &b, &c);
+  // colorTemp = tcs.calculateColorTemperature(r, g, b);
+  colorTemp = tcs.calculateColorTemperature_dn40(r, g, b, c);
+  lux = tcs.calculateLux(r, g, b);
+
+  Serial.print("Color Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
+  Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
+  Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
+  Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
+  Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
+  Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
+  Serial.println(" ");
+
+  
   ultraleituraS();
   ultraleituraF();
-  garraU.write(0);
- garraU.write(8);
+ armgarra();
  
- Serial.println(distanciaF);
+ 
+*/
+if (dist <= 155 ) {
+       motorR.walk(90);
+ motorL.walk(20);
 
-if (distanciaS <= 15 ) {
-  motorR.walk(20);
-  motorL.walk(90);
+
+ 
 }
 
-if ( distanciaS >= 15) {
+if ( dist >= 155) {
+motorR.walk(20);
+ motorL.walk(90);
    
-   motorR.walk(90);
-  motorL.walk(20);
+ 
 }
+//if ( c >= 750) {
+  
+  // both.together(-60,-0.4 );
+ // both.turnDegree(-100,-90);
+//;}
 
-if ( distanciaF <= 10 && distanciaF >= 1 ) {
-   
-   both.turnDegree(100,90);
-}
 
 }
